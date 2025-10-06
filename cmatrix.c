@@ -89,6 +89,12 @@ cmatrix **matrix = (cmatrix **) NULL;
 int *length = NULL;  /* Length of cols in each line */
 int *spaces = NULL;  /* Spaces left to fill */
 int *updates = NULL; /* What does this do again? */
+
+int breathe_dir = 1; // Direction of breathing (up/down)
+int breathe_val = 50; // Starting intensity of breathing (0-100)
+const int breathe_min = 30;  // Min brightness level
+const int breathe_max = 100; // Max brightness level
+
 #ifndef _WIN32
 volatile sig_atomic_t signal_status = 0; /* Indicates a caught signal */
 #endif
@@ -147,7 +153,7 @@ void c_die(char *msg, ...) {
 }
 
 void usage(void) {
-    printf(" Usage: cmatrix -[abBcfhlsmVxk] [-u delay] [-C color] [-t tty] [-M message]\n");
+    printf(" Usage: cmatrix -[abBcfhlsmVxke] [-u delay] [-C color] [-t tty] [-M message]\n");
     printf(" -a: Asynchronous scroll\n");
     printf(" -b: Bold characters on\n");
     printf(" -B: All bold characters (overrides -b)\n");
@@ -167,6 +173,7 @@ void usage(void) {
     printf(" -r: rainbow mode\n");
     printf(" -m: lambda mode\n");
     printf(" -k: Characters change while scrolling. (Works without -o opt.)\n");
+    printf(" -e: Enable breathing effect (smooth fading of colors)\n");
     printf(" -t [tty]: Set tty to use\n");
 }
 
@@ -331,15 +338,16 @@ int main(int argc, char *argv[]) {
     int pause = 0;
     int classic = 0;
     int changes = 0;
+    int breathe_mode = 0; // Toggle Breathe Mode
     char *msg = "";
     char *tty = NULL;
-
+    
     srand((unsigned) time(NULL));
     setlocale(LC_ALL, "");
 
     /* Many thanks to morph- (morph@jmss.com) for this getopt patch */
     opterr = 0;
-    while ((optchr = getopt(argc, argv, "abBcfhlLnrosmxkVM:u:C:t:")) != EOF) {
+    while ((optchr = getopt(argc, argv, "abBcfhlLnrosmxkVM:u:C:t:e")) != EOF) {
         switch (optchr) {
         case 's':
             screensaver = 1;
@@ -424,6 +432,9 @@ int main(int argc, char *argv[]) {
             break;
         case 'k':
             changes = 1;
+            break;
+        case 'e':
+            breathe_mode = 1;  // Enable breathing mode
             break;
         case 't':
             tty = optarg;
@@ -886,6 +897,55 @@ if (console) {
             move(msg_x+1, msg_y-2);
             for (i = 0; i < strlen(msg)+4; i++)
                 addch(' ');
+        }
+        
+        // Breathe effect update
+        if (breathe_mode) {
+            breathe_val += breathe_dir * 1;  // Step brightness
+            if (breathe_val >= breathe_max) breathe_dir = -1;
+            if (breathe_val <= breathe_min) breathe_dir = 1;
+
+            // Pick the active color from the cmatrix color setting
+            short base_color = mcolor;  // mcolor already holds COLOR_GREEN, COLOR_RED, etc.
+
+            // Adjust brightness dynamically if terminal supports color changes
+            if (can_change_color() && has_colors()) {
+                short r = 0, g = 0, b = 0;
+                short intensity = breathe_val * 1000 / 100;  // Map 0–100 → 0–1000
+
+                switch (base_color) {
+                    case COLOR_RED:
+                        r = intensity;
+                        break;
+                    case COLOR_GREEN:
+                        g = intensity;
+                        break;
+                    case COLOR_BLUE:
+                        b = intensity;
+                        break;
+                    case COLOR_YELLOW:
+                        r = g = intensity;
+                        break;
+                    case COLOR_CYAN:
+                        g = b = intensity;
+                        break;
+                    case COLOR_MAGENTA:
+                        r = b = intensity;
+                        break;
+                    case COLOR_WHITE:
+                        r = g = b = intensity;
+                        break;
+                    case COLOR_BLACK:
+                        r = g = b = 0;  // Fully dark
+                        break;
+                    default:
+                        g = intensity;  // fallback: greenish
+                        break;
+                }
+
+                // Apply the color update safely
+                init_color(base_color, r, g, b);
+            }
         }
 
         napms(update * 10);
