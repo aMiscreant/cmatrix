@@ -380,10 +380,12 @@ int main(int argc, char *argv[]) {
                 mcolor = COLOR_MAGENTA;
             } else if (!strcasecmp(optarg, "black")) {
                 mcolor = COLOR_BLACK;
+            } else if (!strcasecmp(optarg, "orange")) {
+                mcolor = 9;
             } else {
                 c_die(" Invalid color selection\n Valid "
                        "colors are green, red, blue, "
-                       "white, yellow, cyan, magenta " "and black.\n");
+                       "white, yellow, cyan, magenta, orange " "and black.\n");
             }
             break;
         case 'c':
@@ -517,6 +519,7 @@ if (console) {
             init_pair(COLOR_MAGENTA, COLOR_MAGENTA, -1);
             init_pair(COLOR_BLUE, COLOR_BLUE, -1);
             init_pair(COLOR_YELLOW, COLOR_YELLOW, -1);
+            init_pair(9, 208, -1);  // Orange (xterm-256color)
         } else {
 #else
         { /* Hack to deal the after effects of else in HAVE_USE_DEFAULT_COLOURS */
@@ -529,6 +532,7 @@ if (console) {
             init_pair(COLOR_MAGENTA, COLOR_MAGENTA, COLOR_BLACK);
             init_pair(COLOR_BLUE, COLOR_BLUE, COLOR_BLACK);
             init_pair(COLOR_YELLOW, COLOR_YELLOW, COLOR_BLACK);
+            init_pair(9, 208, COLOR_BLACK);  // Orange (fallback)
         }
     }
 
@@ -658,6 +662,10 @@ if (console) {
                     break;
                 case '&':
                     mcolor = COLOR_WHITE;
+                    rainbow = 0;
+                    break;
+                case '"':
+                    mcolor = 9;
                     rainbow = 0;
                     break;
                 case 'p':
@@ -826,6 +834,9 @@ if (console) {
                             case 5:
                                 mcolor = COLOR_MAGENTA;
                                 break;
+                           case 6:
+                                mcolor = 9;
+                                break;
                        }
                     }
                     attron(COLOR_PAIR(mcolor));
@@ -914,33 +925,20 @@ if (console) {
                 short intensity = breathe_val * 1000 / 100;  // Map 0–100 → 0–1000
 
                 switch (base_color) {
-                    case COLOR_RED:
+                    case COLOR_RED:      r = intensity; break;
+                    case COLOR_GREEN:    g = intensity; break;
+                    case COLOR_BLUE:     b = intensity; break;
+                    case COLOR_YELLOW:   r = g = intensity; break;
+                    case COLOR_CYAN:     g = b = intensity; break;
+                    case COLOR_MAGENTA:  r = b = intensity; break;
+                    case COLOR_WHITE:    r = g = b = intensity; break;
+                    case COLOR_BLACK:    r = g = b = 0; break;
+                    case 9:              // Orange
                         r = intensity;
+                        g = intensity * 650 / 1000;
+                        b = 0;
                         break;
-                    case COLOR_GREEN:
-                        g = intensity;
-                        break;
-                    case COLOR_BLUE:
-                        b = intensity;
-                        break;
-                    case COLOR_YELLOW:
-                        r = g = intensity;
-                        break;
-                    case COLOR_CYAN:
-                        g = b = intensity;
-                        break;
-                    case COLOR_MAGENTA:
-                        r = b = intensity;
-                        break;
-                    case COLOR_WHITE:
-                        r = g = b = intensity;
-                        break;
-                    case COLOR_BLACK:
-                        r = g = b = 0;  // Fully dark
-                        break;
-                    default:
-                        g = intensity;  // fallback: greenish
-                        break;
+                    default:             g = intensity; break;
                 }
 
                 // Apply the color update safely
